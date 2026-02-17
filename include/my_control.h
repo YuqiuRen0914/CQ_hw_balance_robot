@@ -1,6 +1,9 @@
 #pragma once
 #include "my_config.h"
 
+// 运行时力矩总幅限制（可通过网络配置动态调整）
+extern float torque_limit;
+
 
 void control_reset(robot_state &robot);
 void control_update_pid(robot_state &robot);

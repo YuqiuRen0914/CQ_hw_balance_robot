@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cmath>
 #include "my_motion.h"
 #include "my_motion_state.h"
 #include "my_sense.h"
@@ -21,6 +23,8 @@ robot_state robot = {
     .lowbat_warn = false,
     .recalib_req = false,
     .imu_recalib_req = false,
+    .offground_protect = true,
+    .motor_mode = MODE_PWM,
     .state = MotionState::Init,
     .pitch_zero = -2.1f,
     .tor = {.base = 0.0f, .yaw = 0.0f, .L = 0.0f, .R = 0.0f, .dzL = 0.25f, .dzR = 0.25f},
@@ -38,8 +42,8 @@ robot_state robot = {
     .ang = {0, 0, 0, 0, 0},
     .spd = {0, 0, 0, 0, 0},
     .yaw = {0, 0, 0, 0, 0},
-    .ang_pid = {0.6f, 10.0f, 0.016f, 100000, 250},
-    .spd_pid = {0.003f, 0.00f, 0.00f, 100000, 5},
+    .ang_pid = {0.6f, 5.0f, 0.016f, 100000, 250},
+    .spd_pid = {0.003f, 0.0001f, 0.00f, 100000, 5},
     .yaw_pid = {0.025f, 0.00f, 0.00f, 100000, 5},
 };
 
@@ -51,7 +55,7 @@ static MotionInputs collect_motion_inputs()
     MotionInputs in{};
     in.run_cmd = robot.run;
     in.test_cmd = robot.test_cmd;
-    in.wel_up = robot.wel_up;
+    in.wel_up = robot.offground_protect ? robot.wel_up : false;
     in.fallen = robot.fallen.is;
     in.fallen_recover_ready = sense_fallen_recover_ready(robot);
     in.calib_done = calibration_done();
@@ -61,6 +65,7 @@ static MotionInputs collect_motion_inputs()
     in.batt_warn = BAT_WARNING_VOLTAGE;
     in.batt_empty = BAT_EMPTY_VOLTAGE;
     in.no_op = sense_no_op(robot);
+    in.recalib_req = robot.recalib_req;
     return in;
 }
 
@@ -102,7 +107,18 @@ void my_motion_update()
     robot.imu_l = robot.imu; // 备份上一帧 IMU（外部更新已有）
     sense_update_attitude(robot);
     sense_update_gyro_bias(robot);
-    sense_check_i2c_fault(robot);
+
+    // I2C 存活检测降频：避免每 2ms 做 3 次 I2C ping 引入控制环抖动
+    {
+        static uint32_t last_i2c_check = 0;
+        const uint32_t now = millis();
+        if (now - last_i2c_check >= I2C_FAULT_CHECK_MS)
+        {
+            last_i2c_check = now;
+            sense_check_i2c_fault(robot);
+        }
+    }
+
     sense_adapt_pitch_zero(robot);
     sense_wel_up_detect(robot);
     sense_fall_check(robot);
@@ -111,6 +127,7 @@ void my_motion_update()
     if (prev_state != MotionState::Calibrating && robot.state == MotionState::Calibrating)
     {
         calibration_reset(robot.recalib_req);
+        robot.recalib_req = false; // 消费请求，防止循环触发
     }
     if (robot.state == MotionState::Calibrating)
     {
@@ -126,6 +143,15 @@ void my_motion_update()
     // Calibrating 保持在校准逻辑，控制环不运行
     if (robot.state == MotionState::Calibrating)
     {
+        prev_state = robot.state;
+        return;
+    }
+
+    // 测试模式：允许外部 set_motor 直接写入力矩，不运行 PID
+    if (robot.state == MotionState::Test)
+    {
+        // 在测试模式下，robot.tor.L/R 可能承载 PWM值(±1000)、速度(rad/s)或位置(deg)
+        // 因此不再进行统一的力矩幅值限制(torque_limit=25.0)，避免误截断
         prev_state = robot.state;
         return;
     }
@@ -157,3 +183,4 @@ void my_motion_update()
 
     prev_state = robot.state;
 }
+// 说明：协调传感、状态机、标定挂钩与控制环集成

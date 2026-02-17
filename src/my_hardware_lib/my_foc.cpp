@@ -66,8 +66,40 @@ void my_motor_init() {
 void my_motor_update() {
     update_supply_from_battery();
 
-    motor_1.target = robot.tor.L;
-    motor_2.target = robot.tor.R;
+    if (robot.state == MotionState::Test)
+    {
+        switch (robot.motor_mode)
+        {
+        case MODE_SPEED:
+            motor_1.controller = MotionControlType::velocity;
+            motor_2.controller = MotionControlType::velocity;
+            motor_1.target = robot.tor.L;
+            motor_2.target = robot.tor.R;
+            break;
+        case MODE_POS:
+            motor_1.controller = MotionControlType::angle;
+            motor_2.controller = MotionControlType::angle;
+            motor_1.target = robot.tor.L * (PI / 180.0f);
+            motor_2.target = robot.tor.R * (PI / 180.0f);
+            break;
+        case MODE_PWM:
+        default:
+            motor_1.controller = MotionControlType::torque;
+            motor_2.controller = MotionControlType::torque;
+            // Map -1000~1000 to -Limit~Limit
+            float limit = motor_1.voltage_limit;
+            motor_1.target = (robot.tor.L / 1000.0f) * limit;
+            motor_2.target = (robot.tor.R / 1000.0f) * limit;
+            break;
+        }
+    }
+    else
+    {
+        motor_1.controller = MotionControlType::torque;
+        motor_2.controller = MotionControlType::torque;
+        motor_1.target = robot.tor.L;
+        motor_2.target = robot.tor.R;
+    }
 
     motor_1.loopFOC();
     motor_2.loopFOC();
@@ -75,3 +107,4 @@ void my_motor_update() {
     motor_1.move();
     motor_2.move();
 }
+// 说明：基于 SimpleFOC 的无刷驱动配置与力矩输出（ESP32-S3）

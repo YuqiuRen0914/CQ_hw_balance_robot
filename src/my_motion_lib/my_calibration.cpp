@@ -159,3 +159,4 @@ bool calibration_step(robot_state &robot)
     }
     return false;
 }
+// 说明：电机死区与陀螺零偏的启动及重标定流程

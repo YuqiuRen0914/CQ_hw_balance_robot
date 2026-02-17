@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <string.h>
 
 #include "my_screen.h"
 #include "my_motion.h"
@@ -251,3 +252,65 @@ void my_screen_update()
     draw_status(phase);
     display.display();
 }
+
+// 外部屏幕写入：支持 mono(1bpp) 与 rgb565 -> 灰度阈值
+void my_screen_draw_buffer(const uint8_t *data, size_t len, uint16_t width, uint16_t height, const char *mode)
+{
+    if (!screen_ready || data == nullptr)
+        return;
+    if (width != SCREEN_WIDTH || height != SCREEN_HEIGHT)
+        return;
+
+    display.clearDisplay();
+
+    if (strcmp(mode, "mono") == 0)
+    {
+        // 1bpp，MSB first
+        const size_t expect = (size_t)width * height / 8;
+        if (len < expect)
+            return;
+        size_t idx = 0;
+        for (uint16_t y = 0; y < height; ++y)
+        {
+            for (uint16_t x = 0; x < width; x += 8)
+            {
+                uint8_t byte = data[idx++];
+                for (uint8_t b = 0; b < 8; ++b)
+                {
+                    bool on = byte & (1 << (7 - b));
+                    display.drawPixel(x + b, y, on ? SSD1306_WHITE : SSD1306_BLACK);
+                }
+            }
+        }
+    }
+    else if (strcmp(mode, "rgb565") == 0)
+    {
+        const size_t expect = (size_t)width * height * 2;
+        if (len < expect)
+            return;
+        size_t idx = 0;
+        for (uint16_t y = 0; y < height; ++y)
+        {
+            for (uint16_t x = 0; x < width; ++x)
+            {
+                uint8_t lo = data[idx++];
+                uint8_t hi = data[idx++];
+                uint16_t v = (hi << 8) | lo;
+                uint8_t r = (v >> 11) & 0x1F;
+                uint8_t g = (v >> 5) & 0x3F;
+                uint8_t b = v & 0x1F;
+                // 归一化到 0~255 近似，阈值化
+                uint16_t gray = (r * 527 + g * 259 + b * 527) >> 6; // 粗略 0~255*4
+                bool on = gray > 512; // 约 >50% 灰度
+                display.drawPixel(x, y, on ? SSD1306_WHITE : SSD1306_BLACK);
+            }
+        }
+    }
+    else
+    {
+        return;
+    }
+
+    display.display();
+}
+// 说明：SSD1306 OLED 绘制，含开机动画、周期状态页与外部缓冲渲染

@@ -127,3 +127,4 @@ void my_bat_update()
 
     battery_voltage = v;
 }
+// 说明：电池采样与滤波，去尖峰并映射为电压/百分比

@@ -51,7 +51,19 @@
 /********** 力矩参数配置 **********/
 #define TOR_SUM_LIM 25.0f
 
+// 电池百分比映射范围（3S 9.0~12.6V）
+#define BAT_PCT_MIN_V 9.0f
+#define BAT_PCT_MAX_V 12.6f
 
+
+
+/********** 运动控制模式 **********/
+enum MotorControlMode
+{
+    MODE_PWM,
+    MODE_SPEED,
+    MODE_POS
+};
 
 /********** 硬件外设结构体 **********/
 struct imu_data
@@ -127,6 +139,9 @@ struct robot_state
     bool lowbat_warn;
     bool recalib_req; // 外部指令要求重新校准
     bool imu_recalib_req; // 外部指令要求IMU重新校准
+    bool offground_protect; // 离地保护开关
+
+    MotorControlMode motor_mode; // 电机控制模式
 
     MotionState state;
 
@@ -184,7 +199,28 @@ struct robot_state
 #define ADDR_MPU6050 0x68
 #define ADDR_AS5600  0x36
 
+/********** Mahony AHRS 姿态融合 **********/
+#define MAHONY_KP           2.0f    // 加速度计比例校正增益
+#define MAHONY_KI           0.01f   // 加速度计积分校正增益（漂移补偿）
+
+/********** 重力前馈 **********/
+#define GRAVITY_FF_GAIN     15.0f   // 重力力矩前馈系数
+
+/********** 速度指令前馈 **********/
+#define ACCEL_FF_GAIN       0.5f    // 速度变化率→倾角前馈系数 (deg / (rad/s²))
+
+/********** 陀螺阻尼滤波 **********/
+#define GYRO_DAMP_ALPHA     0.3f    // 陀螺阻尼信号一阶低通系数（0~1，越小越平滑）
+
+/********** 速度低通滤波 **********/
+#define SPD_FILTER_ALPHA    0.1f    // 一阶 EMA 系数（0~1，越小越平滑）
+
+/********** I2C 故障检测 **********/
+#define I2C_FAULT_CHECK_MS  250     // I2C 设备存活检测周期（ms）
+
 /********** 姿态零点自适应 **********/
 #define ZERO_ADAPT_DEADBAND_DEG 2.0f   // 静止判定俯仰阈值
 #define ZERO_ADAPT_GYRO_DPS     8.0f   // 静止判定角速度阈值
+#define ZERO_ADAPT_FAST_MS      5000U  // 上电初期快速收敛窗口
+#define ZERO_ADAPT_FAST_RATE    0.01f  // 上电初期零点缓动比例
 #define ZERO_ADAPT_RATE         0.0005f // 每周期零点缓动比例

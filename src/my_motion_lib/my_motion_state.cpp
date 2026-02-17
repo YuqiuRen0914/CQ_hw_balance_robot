@@ -124,6 +124,8 @@ MotionDecision motion_state_step(MotionState current, const MotionInputs &in, ui
             return make_decision(MotionState::Idle, false, false); // 校准完成后待机
         return make_decision(MotionState::Calibrating, true, false); // 继续校准
     case MotionState::Idle:                           // 待机逻辑
+        if (in.recalib_req)
+            return make_decision(MotionState::Calibrating, true, false); // 运行时重标定
         if (in.test_cmd)
             return make_decision(MotionState::Test, true, false); // 进入测试态
         if (in.run_cmd)
@@ -153,3 +155,4 @@ MotionDecision motion_state_step(MotionState current, const MotionInputs &in, ui
         return make_decision(MotionState::Fault, false, false);
     }
 }
+// 说明：实现运动状态机及其转移逻辑

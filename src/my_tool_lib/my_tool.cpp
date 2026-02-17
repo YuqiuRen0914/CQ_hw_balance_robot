@@ -39,3 +39,4 @@ static inline void rtrim_inplace(char *s)
         --e;
     *e = '\0';
 }
+// 说明：通用小工具函数（限幅、死区、裁剪）供控制逻辑复用

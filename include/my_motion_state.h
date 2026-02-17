@@ -32,7 +32,8 @@ struct MotionInputs
     float batt_v;
     float batt_warn;
     float batt_empty;
-    bool no_op; // 摇杆是否无操作（供上层零点逻辑使用）
+    bool no_op;       // 摇杆是否无操作（供上层零点逻辑使用）
+    bool recalib_req; // 运行时重标定请求
 };
 
 // 状态机决策输出

@@ -32,7 +32,9 @@ void sense_update_attitude(robot_state &robot)
         yaw += 360.0f;
     robot.yaw.now = yaw;
 
-    robot.spd.now = 0.5f * (robot.wL + robot.wR);
+    // 一阶 EMA 低通：抑制编码器差分噪声对速度环的干扰
+    const float raw_spd = 0.5f * (robot.wL + robot.wR);
+    robot.spd.now = SPD_FILTER_ALPHA * raw_spd + (1.0f - SPD_FILTER_ALPHA) * robot.spd.last;
 }
 
 void sense_wel_up_detect(robot_state &robot)
@@ -208,13 +210,17 @@ void sense_update_gyro_bias(robot_state &robot)
 // 静止自适应 pitch 零点：缓慢逼近当前姿态
 void sense_adapt_pitch_zero(robot_state &robot)
 {
+    static uint32_t boot_ms = millis();
     const bool quiet = (fabsf(robot.ang.now) < ZERO_ADAPT_DEADBAND_DEG) &&
                        (fabsf(robot.imu.gyroy) < ZERO_ADAPT_GYRO_DPS) &&
                        sense_no_op(robot);
     if (!quiet)
         return;
     const float err = robot.ang.now - robot.pitch_zero;
-    robot.pitch_zero += err * ZERO_ADAPT_RATE;
+    const uint32_t now = millis();
+    const bool fast_stage = (now - boot_ms) < ZERO_ADAPT_FAST_MS;
+    const float adapt_rate = fast_stage ? ZERO_ADAPT_FAST_RATE : ZERO_ADAPT_RATE;
+    robot.pitch_zero += err * adapt_rate;
 }
 
 // I2C 设备应答检测：MPU6050 与左右 AS5600（两路总线）
@@ -232,3 +238,4 @@ bool sense_check_i2c_fault(robot_state &robot)
     robot.drv_fault = !(ok_mpu && ok_as_l && ok_as_r);
     return robot.drv_fault;
 }
+// 说明：传感融合与状态检测（轮速、姿态、陀螺零偏、摔倒/离地）

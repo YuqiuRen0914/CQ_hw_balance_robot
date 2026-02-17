@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "my_storage.h"
 #include <Preferences.h>
 
@@ -67,3 +68,39 @@ void storage_save_gyro_bias(float gx, float gy, float gz)
     prefs.putFloat(NVS_KEY_GY, gy);
     prefs.putFloat(NVS_KEY_GZ, gz);
 }
+
+// 通用键值存取，便于网络配置/命名/参数保存
+bool storage_load_string(const char *key, String &out)
+{
+    if (!ensure_ready())
+        return false;
+    if (!prefs.isKey(key))
+        return false;
+    out = prefs.getString(key, "");
+    return true;
+}
+
+void storage_save_string(const char *key, const String &value)
+{
+    if (!ensure_ready())
+        return;
+    prefs.putString(key, value);
+}
+
+bool storage_load_float(const char *key, float &out)
+{
+    if (!ensure_ready())
+        return false;
+    if (!prefs.isKey(key))
+        return false;
+    out = prefs.getFloat(key, out);
+    return true;
+}
+
+void storage_save_float(const char *key, float value)
+{
+    if (!ensure_ready())
+        return;
+    prefs.putFloat(key, value);
+}
+// 说明：NVS 持久化封装，用于标定及通用键值存储

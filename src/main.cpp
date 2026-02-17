@@ -5,6 +5,7 @@
 #include "my_motion.h"
 #include "my_foc.h"
 #include "my_screen.h"
+#include "my_net.h"
 
 // FreeRTOS 任务句柄
 static TaskHandle_t control_task_handle = nullptr;
@@ -68,6 +69,7 @@ void setup()
     my_motor_init();
     my_motion_init();
     my_screen_init();
+    my_net_init();
 
     // 创建控制任务（核心0，高优先级）
     xTaskCreatePinnedToCore(
@@ -95,3 +97,4 @@ void loop()
     // 主循环空转，让出 CPU
     vTaskDelay(pdMS_TO_TICKS(1000));
 }
+// 说明：ESP32 平衡车入口，初始化硬件并创建控制/屏幕任务
