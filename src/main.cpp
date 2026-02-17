@@ -71,25 +71,11 @@ void setup()
     my_screen_init();
     my_net_init();
 
-    // 创建控制任务（核心0，高优先级）
-    xTaskCreatePinnedToCore(
-        control_task,         // 任务函数
-        "control",            // 名称
-        8192,                 // 栈
-        nullptr,              // 参数
-        configMAX_PRIORITIES - 1, // 优先级：最高
-        &control_task_handle, // 句柄
-        0);                   // 绑定 core0
+    // 创建控制任务（核心0，最高优先级）
+    xTaskCreatePinnedToCore(control_task, "control", 8192, nullptr, configMAX_PRIORITIES - 1, &control_task_handle, 0);
 
     // 创建屏幕任务（核心1，中等优先级）
-    xTaskCreatePinnedToCore(
-        screen_task,
-        "screen",
-        4096,
-        nullptr,
-        3,                    // 中等优先级
-        &screen_task_handle,
-        1);                   // 绑定 core1
+    xTaskCreatePinnedToCore(screen_task, "screen", 4096, nullptr, 3, &screen_task_handle, 1);
 }
 
 void loop()
